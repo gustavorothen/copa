@@ -1,14 +1,24 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "copa-madu",
-  "main": "./worker/index.ts",
+  "main": "./dist/server/index.js",
+  "build": {
+    "command": "node scripts/build-cloudflare.mjs"
+  },
+  "no_bundle": true,
+  "rules": [
+    {
+      "type": "ESModule",
+      "globs": ["**/*.js", "**/*.mjs"]
+    }
+  ],
   "compatibility_date": "2026-10-12",
   "compatibility_flags": [
     "nodejs_compat"
   ],
   "workers_dev": true,
   "assets": {
-    "directory": "./public",
+    "directory": "./dist/client",
     "binding": "ASSETS"
   },
   "d1_databases": [

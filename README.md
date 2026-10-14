@@ -63,7 +63,8 @@ Configurações de build:
 O comando npm run deploy executa o build com Vite e depois publica o Worker
 compilado em dist/server. Ele funciona mesmo sem um build anterior. Se você
 mantiver npm run build no campo Build command, também funciona, mas compila duas vezes.
-Troque o Deploy command padrão npx wrangler deploy por npm run deploy.
+O comando padrão npx wrangler deploy também é suportado: wrangler.jsonc
+executa o build pelo Vite antes de publicar dist/server/index.js e dist/client.
 
 Antes do primeiro deploy automático, aplique as tabelas com npm run db:remote
 no terminal autenticado. As próximas migrações também devem ser aplicadas antes
@@ -100,10 +101,14 @@ deploy:check executa o build e valida o pacote, sem publicá-lo e sem exigir con
 
 Esse módulo é resolvido pelo plugin Vinext durante o build do Vite. O Wrangler
 não consegue compilar diretamente worker/index.ts. Não crie um alias para
-esse módulo. No painel da Cloudflare, em Settings > Build, configure
-Deploy command como npm run deploy e deixe Build command vazio. Depois inicie
-um novo build do commit mais recente. O script usa dist/server/wrangler.json,
-gerado pelo Vite, para enviar o Worker e seus assets.
+esse módulo. A configuração raiz aponta para o Worker já compilado e inclui
+um custom build que gera esse arquivo antes do deploy. O Vite usa a entrada
+fonte por meio de sua própria configuração, sem executar outro custom build.
+
+No painel da Cloudflare, em Settings > Build, deixe Build command vazio.
+Deploy command pode ser npm run deploy ou o padrão npx wrangler deploy.
+Depois inicie um novo build do commit mais recente. Não reexecute um build
+preso em um commit anterior à correção.
 
 ## Correção do ERESOLVE
 

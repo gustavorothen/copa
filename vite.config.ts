@@ -9,5 +9,11 @@ export default defineConfig(async () => {
   return { plugins: [vinext(), cloudflare({
     viteEnvironment: { name: "rsc", childEnvironments: ["ssr"] },
     inspectorPort: false,
+    // Wrangler publishes the compiled output; Vite starts from the source.
+    config: {
+      main: "./worker/index.ts",
+      assets: { directory: "./public", binding: "ASSETS" },
+      build: { command: "" },
+    },
   })] };
 });

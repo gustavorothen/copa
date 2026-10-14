@@ -19,7 +19,7 @@ function run(script, args = []) {
 // The source entry contains a virtual module that only Vite can resolve.
 // Always generate the Worker and assets before handing them to Wrangler.
 if (!dryRun) run("./check-cloudflare.mjs");
-run("../node_modules/vite/bin/vite.js", ["build"]);
+run("./build-cloudflare.mjs");
 if (!dryRun) run("./check-cloudflare.mjs", ["--built"]);
 run("../node_modules/wrangler/bin/wrangler.js", [
   flags.includes("--preview") ? "preview" : "deploy",
