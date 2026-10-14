@@ -2,15 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { eq, and } from "drizzle-orm";
 import { getDb } from "../../../db";
 import { championships } from "../../../db/schema";
-import { Championship, validateState } from "../../lib/tournament";
+import { Championship, validateState, normalizeState, allMatches } from "../../lib/tournament";
 import { getSharedChampionship, SHARED_CHAMPIONSHIP } from "../../lib/shared-championship";
 export const dynamic = "force-dynamic";
 export async function GET(request: NextRequest) {
   try {
     const row = await getSharedChampionship();
-    const state: Championship = JSON.parse(row.payload);
+    const state: Championship = normalizeState(JSON.parse(row.payload));
     if (new URL(request.url).searchParams.get("view") === "board") {
-      for (const division of Object.values(state.divisions)) division.teams = division.teams.map(t => ({ ...t, players: [] }));
+      state.people = []; for (const division of Object.values(state.divisions)) { division.teams = division.teams.map(t => ({ ...t, players: [] })); for (const match of allMatches(division)) delete match.lineups; }
     }
     return NextResponse.json({ state, revision: row.revision }, { headers: { "Cache-Control": "no-store" } });
   } catch { return NextResponse.json({ error: "Não foi possível carregar os dados. Tente novamente." }, { status: 503 }); }
@@ -19,14 +19,16 @@ export async function PUT(request: NextRequest) {
   const origin = request.headers.get("origin");
   if (origin && origin !== new URL(request.url).origin) return NextResponse.json({ error: "Origem inválida." }, { status: 403 });
   if (!request.headers.get("content-type")?.toLowerCase().startsWith("application/json")) return NextResponse.json({ error: "Envie os dados em JSON." }, { status: 415 });
-  if (Number(request.headers.get("content-length")) > 180000) return NextResponse.json({ error: "Campeonato muito grande." }, { status: 413 });
+  if (Number(request.headers.get("content-length")) > 1000000) return NextResponse.json({ error: "Campeonato muito grande." }, { status: 413 });
   const raw = await request.text();
-  if (raw.length > 180000) return NextResponse.json({ error: "Campeonato muito grande." }, { status: 413 });
+  if (raw.length > 1000000) return NextResponse.json({ error: "Campeonato muito grande." }, { status: 413 });
   let body;
-  try { body = JSON.parse(raw); validateState(body.state); if (!Number.isSafeInteger(body.revision) || body.revision < 0) throw new Error("Versão inválida."); }
+  try { body = JSON.parse(raw); if (!Number.isSafeInteger(body.revision) || body.revision < 0) throw new Error("Versão inválida."); }
   catch (e) { return NextResponse.json({ error: e instanceof Error ? e.message : "Dados inválidos." }, { status: 400 }); }
   try {
-    await getSharedChampionship();
+    const previous = await getSharedChampionship();
+    if (body.revision !== previous.revision) return NextResponse.json({ error: "Há uma versão mais recente. Recarregue os dados antes de continuar." }, { status: 409 });
+    try { validateState(body.state, normalizeState(JSON.parse(previous.payload))); } catch (e) { return NextResponse.json({ error: e instanceof Error ? e.message : "Dados inválidos." }, { status: 400 }); }
     const updated = await getDb().update(championships).set({ payload: JSON.stringify(body.state), revision: body.revision + 1 }).where(and(eq(championships.owner, SHARED_CHAMPIONSHIP), eq(championships.revision, body.revision))).returning().get();
     if (!updated) return NextResponse.json({ error: "Há uma versão mais recente. Recarregue os dados antes de continuar." }, { status: 409 });
     return NextResponse.json({ revision: updated.revision });
