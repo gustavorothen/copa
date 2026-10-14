@@ -14,8 +14,8 @@
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "copa-madu",
-      "database_id": "00000000-0000-4000-8000-000000000000",
+      "database_name": "copa-db",
+      "database_id": "9734e6cd-627d-4e07-a4d2-ad88dffb9c90",
       "migrations_dir": "./drizzle"
     }
   ]

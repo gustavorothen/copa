@@ -4,7 +4,22 @@ Código completo, imagens e painel /admin. O D1 é o banco gerenciado da Cloudfl
 compatível com SQLite. Pessoas, times e placares ficam no D1 e são compartilhados
 entre celulares e computadores. Esta exportação não inclui dados do banco do Sites.
 
-## Publicar pela primeira vez
+## Banco já configurado desta instalação
+
+O wrangler.jsonc já aponta para o banco D1 **copa-db**, com binding **DB**
+e database_id **9734e6cd-627d-4e07-a4d2-ad88dffb9c90**.
+Não é necessário criar outro banco. Antes do primeiro deploy, prepare as tabelas:
+
+```sh
+npm ci
+npx wrangler login
+npm run db:remote
+```
+
+Depois execute npm run deploy ou inicie um novo build na Cloudflare.
+Criar o D1 no painel não cria automaticamente as tabelas da aplicação.
+
+## Instalar em outro banco ou outra conta
 
 Use Node.js 22.16 ou superior. Extraia esta pasta, abra o terminal nela e execute:
 
