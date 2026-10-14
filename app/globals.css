@@ -7,3 +7,4 @@
 @media(prefers-reduced-motion:reduce){.madu-sparkle{animation:none}}
 .madu-community{overflow-x:visible}.madu-bracket-scroll{width:100%;overflow-x:auto;overscroll-behavior-x:contain}.madu-top-caption{margin-left:auto}.madu-page-title{margin-top:2px}.madu-profile-links{margin-top:13px}
 @media(max-width:580px){.madu-profile{min-height:132px}.madu-bracket-scroll{overflow-x:visible}.madu-profile-links{margin-top:15px}}
+.madu-top-four .madu-standing-score{display:flex;flex-direction:column;gap:3px;text-align:right}.madu-standing-score strong{font-size:12px;color:#45668f}.madu-standing-score span{font-size:10px;color:#6d809a}

@@ -49,15 +49,15 @@ export function schedule(teams: Team[]): Match[] {
   return result;
 }
 export function standings(d: Division) {
-  const rows = d.teams.map(t => ({ ...t, played: 0, wins: 0, losses: 0, pointsFor: 0, pointsAgainst: 0, balance: 0 }));
+  const rows = d.teams.map(t => ({ ...t, played: 0, wins: 0, losses: 0, leaguePoints: 0, pointsFor: 0, pointsAgainst: 0, balance: 0 }));
   for (const m of d.matches) {
     if (!m.score) continue;
     const a = rows.find(t => t.id === m.a)!, b = rows.find(t => t.id === m.b)!;
     a.played++; b.played++; a.pointsFor += m.score[0]; a.pointsAgainst += m.score[1]; b.pointsFor += m.score[1]; b.pointsAgainst += m.score[0];
     if (m.score[0] > m.score[1]) { a.wins++; b.losses++; } else { b.wins++; a.losses++; }
   }
-  rows.forEach(t => t.balance = t.pointsFor - t.pointsAgainst);
-  return rows.sort((a, b) => b.wins - a.wins || b.balance - a.balance || b.pointsFor - a.pointsFor || ((d.tieOrder.indexOf(a.id) < 0 ? 999 : d.tieOrder.indexOf(a.id)) - (d.tieOrder.indexOf(b.id) < 0 ? 999 : d.tieOrder.indexOf(b.id))));
+  rows.forEach(t => { t.balance = t.pointsFor - t.pointsAgainst; t.leaguePoints = t.wins * 3; });
+  return rows.sort((a, b) => b.leaguePoints - a.leaguePoints || b.balance - a.balance || b.pointsFor - a.pointsFor || ((d.tieOrder.indexOf(a.id) < 0 ? 999 : d.tieOrder.indexOf(a.id)) - (d.tieOrder.indexOf(b.id) < 0 ? 999 : d.tieOrder.indexOf(b.id))));
 }
 export const sameRank = (a: ReturnType<typeof standings>[number], b: ReturnType<typeof standings>[number]) => a.wins === b.wins && a.balance === b.balance && a.pointsFor === b.pointsFor;
 export function needsDraw(d: Division) { const r = standings(d); return r.some((t, i) => i > 0 && i <= 4 && sameRank(t, r[i - 1])) && d.tieOrder.length !== d.teams.length; }

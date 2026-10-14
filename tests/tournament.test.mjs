@@ -8,6 +8,9 @@ const clash=d.matches.find(m=>sharedPlayers(d,m).length);assert.ok(clash);assert
 const replacement={id:'substitute',name:'Pessoa substituta'};s.people.push(replacement);const chosen=lineups(d,clash);setLineups(d,clash.id,{a:chosen.a.map((id,i)=>i===0?replacement.id:id),b:[...chosen.b]});assert.equal(sharedPlayers(d,clash).length,0);assert.equal(d.teams[0].players[0],d.teams[3].players[0]);
 for(const m of d.matches)recordScore(d,m.id,Number(m.a.slice(-1))<Number(m.b.slice(-1))?[21,10]:[10,21]);
 assert.equal(standings(d)[0].wins,3);qualify(d);assert.deepEqual(d.semis.map(m=>[m.a,m.b]),[['futevolei-t0','futevolei-t2'],['futevolei-t1','futevolei-t3']]);validateState(s);
+assert.equal(standings(d)[0].leaguePoints,9);
+assert.equal(standings(d)[0].balance,33);
+assert.equal(standings(d).find(t=>t.wins===0).leaguePoints,0);
 recordScore(d,'semi-1',[21,15]);recordScore(d,'semi-2',[10,21]);assert.equal(d.final.a,'futevolei-t0');assert.equal(d.final.b,'futevolei-t3');assert.throws(()=>startMatch(s,'futevolei','final'),/substituto/);assert.throws(()=>recordScore(d,'final',[21,10]),/substituto/);
 const finalOriginal=lineups(d,d.final);setLineups(d,'final',{a:finalOriginal.a.map((id,i)=>i===0?'substitute':id),b:[...finalOriginal.b]});startMatch(s,'futevolei','final');validateState(s);recordScore(d,'final',[21,17]);assert.equal(winner(d.final),'futevolei-t0');assert.equal(d.final.playing,false);validateState(s);assert.equal(d.teams[0].players[0],d.teams[3].players[0]);
 recordScore(d,'semi-1',[12,21]);assert.equal(d.final.score,null);validateState(s);
