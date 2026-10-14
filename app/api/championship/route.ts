@@ -2,16 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { eq, and } from "drizzle-orm";
 import { getDb } from "../../../db";
 import { championships } from "../../../db/schema";
-import { Championship, validateState, normalizeState, allMatches } from "../../lib/tournament";
+import { Championship, validateState, normalizeState, publicState } from "../../lib/tournament";
 import { getSharedChampionship, SHARED_CHAMPIONSHIP } from "../../lib/shared-championship";
 export const dynamic = "force-dynamic";
 export async function GET(request: NextRequest) {
   try {
     const row = await getSharedChampionship();
-    const state: Championship = normalizeState(JSON.parse(row.payload));
-    if (new URL(request.url).searchParams.get("view") === "board") {
-      state.people = []; for (const division of Object.values(state.divisions)) { division.teams = division.teams.map(t => ({ ...t, players: [] })); for (const match of allMatches(division)) delete match.lineups; }
-    }
+    let state: Championship = normalizeState(JSON.parse(row.payload));
+    const view = new URL(request.url).searchParams.get("view");
+    if (view === "board" || view === "teams") state = publicState(state, view === "teams");
     return NextResponse.json({ state, revision: row.revision }, { headers: { "Cache-Control": "no-store" } });
   } catch { return NextResponse.json({ error: "Não foi possível carregar os dados. Tente novamente." }, { status: 503 }); }
 }

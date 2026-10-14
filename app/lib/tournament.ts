@@ -2,21 +2,32 @@ export type Sport = "volei" | "futevolei";
 export type Person = { id: string; name: string };
 export type Team = { id: string; name: string; color: string; players: string[] };
 export type Match = { id: string; a: string; b: string; round: number; score: [number, number] | null; playing?: boolean; lineups?: { a: string[]; b: string[] } };
-export type Division = { teams: Team[]; matches: Match[]; started: boolean; seeded: string[]; semis: Match[]; final: Match | null; tieOrder: string[] };
+export type Division = { teams: Team[]; matches: Match[]; started: boolean; seeded: string[]; semis: Match[]; final: Match | null; thirdPlace?: Match | null; tieOrder: string[] };
 export type Championship = { version: 2; title: string; people: Person[]; divisions: Record<Sport, Division> };
 export const sports: Sport[] = ["volei", "futevolei"];
 export const labels = { volei: "Vôlei", futevolei: "Futevôlei" };
 export const rosterSize = { volei: 6, futevolei: 2 };
 export const personKey = (name: string) => name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().replace(/\s+/g, " ").toLocaleLowerCase();
-export const emptyDivision = (): Division => ({ teams: [], matches: [], started: false, seeded: [], semis: [], final: null, tieOrder: [] });
+export const emptyDivision = (): Division => ({ teams: [], matches: [], started: false, seeded: [], semis: [], final: null, thirdPlace: null, tieOrder: [] });
 export const emptyState = (): Championship => ({ version: 2, title: "Copa Madu", people: [], divisions: { volei: emptyDivision(), futevolei: emptyDivision() } });
-export const allMatches = (d: Division): Match[] => [...d.matches, ...d.semis, ...(d.final ? [d.final] : [])];
+export const allMatches = (d: Division): Match[] => [...d.matches, ...d.semis, ...(d.final ? [d.final] : []), ...(d.thirdPlace ? [d.thirdPlace] : [])];
+export function publicState(value: Championship, includeRosters = false): Championship {
+  const state = structuredClone(value);
+  const participants = new Set(sports.flatMap(sport => state.divisions[sport].teams.flatMap(team => team.players)));
+  state.people = includeRosters ? state.people.filter(person => participants.has(person.id)) : [];
+  for (const sport of sports) {
+    const d = state.divisions[sport];
+    if (!includeRosters) d.teams = d.teams.map(team => ({ ...team, players: [] }));
+    for (const match of allMatches(d)) delete match.lineups;
+  }
+  return state;
+}
 export function lineups(d: Division, m: Match) { return m.lineups ?? { a: d.teams.find(t => t.id === m.a)?.players ?? [], b: d.teams.find(t => t.id === m.b)?.players ?? [] }; }
 export function sharedPlayers(d: Division, m: Match) { const p = lineups(d, m); return p.a.filter(id => p.b.includes(id)); }
 export function teamOverlap(a: Team, b: Team) { return a.players.filter(id => b.players.includes(id)); }
 export function normalizeState(value: unknown): Championship {
   const s = structuredClone(value) as Championship;
-  if (s.version === 2 && Array.isArray(s.people)) return s;
+  if (s.version === 2 && Array.isArray(s.people)) return addMissingThirdPlace(s);
   s.version = 2; s.people = [];
   const byName = new Map<string, string>();
   for (const sport of sports) {
@@ -26,6 +37,15 @@ export function normalizeState(value: unknown): Championship {
       const id = `person-legacy-${s.people.length + 1}`; byName.set(key, id); s.people.push({ id, name: name.trim() }); return id;
     });
     if (d.started) { const prior = new Map(d.matches.map(m => [m.id, m])); d.matches = schedule(d.teams).map(m => ({ ...m, score: prior.get(m.id)?.score ?? null })); }
+  }
+  return addMissingThirdPlace(s);
+}
+function addMissingThirdPlace(s: Championship) {
+  for (const sport of sports) {
+    const d = s.divisions[sport];
+    if (d.thirdPlace !== undefined) continue;
+    const a = loser(d.semis[0] ?? null), b = loser(d.semis[1] ?? null);
+    d.thirdPlace = a && b ? { id: "third-place", a, b, round: 3, score: null } : null;
   }
   return s;
 }
@@ -63,6 +83,8 @@ export const sameRank = (a: ReturnType<typeof standings>[number], b: ReturnType<
 export function needsDraw(d: Division) { const r = standings(d); return r.some((t, i) => i > 0 && i <= 4 && sameRank(t, r[i - 1])) && d.tieOrder.length !== d.teams.length; }
 export const groupsDone = (d: Division) => d.started && d.matches.length > 0 && d.matches.every(m => m.score !== null);
 export const winner = (m: Match | null) => m?.score ? (m.score[0] > m.score[1] ? m.a : m.b) : null;
+export const loser = (m: Match | null) => m?.score ? (m.score[0] > m.score[1] ? m.b : m.a) : null;
+export const podium = (d: Division) => [winner(d.final), loser(d.final), winner(d.thirdPlace ?? null)];
 export function semifinalPairs(d: Division) {
   const ranked = standings(d).slice(0, 4);
   const candidates = [[[0, 3], [1, 2]], [[0, 2], [1, 3]], [[0, 1], [2, 3]]];
@@ -77,7 +99,14 @@ export function semifinalPairs(d: Division) {
 export function qualify(d: Division) {
   if (!groupsDone(d) || needsDraw(d)) throw new Error("Conclua os grupos e resolva os desempates primeiro.");
   d.seeded = standings(d).slice(0, 4).map(t => t.id);
-  d.semis = semifinalPairs(d).map(([a, b], i) => ({ id: `semi-${i + 1}`, a, b, round: i + 1, score: null })); d.final = null;
+  d.semis = semifinalPairs(d).map(([a, b], i) => ({ id: `semi-${i + 1}`, a, b, round: i + 1, score: null })); d.final = null; d.thirdPlace = null;
+}
+export function resetGroups(d: Division, regenerate = false) {
+  if (!d.started || d.seeded.length) throw new Error("As rodadas só podem ser refeitas durante a fase de grupos.");
+  if (d.matches.some(m => m.playing)) throw new Error("Pause as partidas em andamento antes de excluir ou recriar as rodadas.");
+  d.started = regenerate;
+  d.matches = regenerate ? schedule(d.teams) : [];
+  d.tieOrder = []; d.seeded = []; d.semis = []; d.final = null; d.thirdPlace = null;
 }
 export function setLineups(d: Division, id: string, chosen: { a: string[]; b: string[] }) {
   const m = allMatches(d).find(m => m.id === id);
@@ -107,13 +136,18 @@ export function recordScore(d: Division, id: string, score: [number, number] | n
   if (score && sharedPlayers(d, m).length) throw new Error("Há uma pessoa nos dois times. Defina um substituto na escalação antes de lançar o placar.");
   const group = d.matches.find(m => m.id === id);
   if (group) {
-    if (d.semis.some(m => m.playing) || d.final?.playing) throw new Error("Encerre as partidas do mata-mata antes de corrigir os grupos.");
-    group.score = score; group.playing = false; d.seeded = []; d.semis = []; d.final = null; d.tieOrder = []; return;
+    if (d.semis.some(m => m.playing) || d.final?.playing || d.thirdPlace?.playing) throw new Error("Encerre as partidas do mata-mata antes de corrigir os grupos.");
+    group.score = score; group.playing = false; d.seeded = []; d.semis = []; d.final = null; d.thirdPlace = null; d.tieOrder = []; return;
   }
   const semi = d.semis.find(m => m.id === id);
   if (semi) {
-    if (d.final?.playing) throw new Error("Encerre a final antes de corrigir uma semifinal.");
-    semi.score = score; semi.playing = false; const a = winner(d.semis[0]), b = winner(d.semis[1]); d.final = a && b ? { id: "final", a, b, round: 3, score: null } : null; return;
+    if (d.final?.playing || d.thirdPlace?.playing) throw new Error("Encerre a final e a disputa de terceiro lugar antes de corrigir uma semifinal.");
+    semi.score = score; semi.playing = false;
+    const a = winner(d.semis[0]), b = winner(d.semis[1]);
+    d.final = a && b ? { id: "final", a, b, round: 3, score: null } : null;
+    const thirdA = loser(d.semis[0]), thirdB = loser(d.semis[1]);
+    d.thirdPlace = thirdA && thirdB ? { id: "third-place", a: thirdA, b: thirdB, round: 3, score: null } : null;
+    return;
   }
   m.score = score; m.playing = false;
 }
@@ -143,8 +177,12 @@ export function validateState(value: unknown, previous?: Championship): asserts 
       const seeds = standings(d).slice(0, 4).map(t => t.id);
       const semiTeams = d.semis.flatMap(m => [m.a, m.b]);
       if (!groupsDone(d) || needsDraw(d) || d.seeded.length !== 4 || seeds.some((id, i) => id !== d.seeded[i]) || d.semis.length !== 2 || d.semis[0].id !== "semi-1" || d.semis[1].id !== "semi-2" || new Set(semiTeams).size !== 4 || semiTeams.some(id => !seeds.includes(id))) throw new Error("Chaveamento inválido.");
-    } else if (d.semis.length || d.final) throw new Error("Chaveamento ainda não liberado.");
+    } else if (d.semis.length || d.final || d.thirdPlace) throw new Error("Chaveamento ainda não liberado.");
     if (d.final && (d.final.id !== "final" || d.final.a !== winner(d.semis[0]) || d.final.b !== winner(d.semis[1]))) throw new Error("Final inválida.");
+    const thirdA = loser(d.semis[0] ?? null), thirdB = loser(d.semis[1] ?? null);
+    if (thirdA && thirdB) {
+      if (!d.thirdPlace || d.thirdPlace.id !== "third-place" || d.thirdPlace.a !== thirdA || d.thirdPlace.b !== thirdB) throw new Error("Disputa de terceiro lugar inválida. Recarregue a página.");
+    } else if (d.thirdPlace) throw new Error("A disputa de terceiro lugar depende das duas semifinais.");
     const matchIds = new Set<string>();
     for (const m of allMatches(d)) {
       if (!m || matchIds.has(m.id) || !ids.has(m.a) || !ids.has(m.b) || m.a === m.b || (m.playing !== undefined && typeof m.playing !== "boolean") || (m.playing && m.score) || (m.score !== null && (!Array.isArray(m.score) || m.score.length !== 2 || !m.score.every(n => Number.isInteger(n) && n >= 0 && n <= 999) || m.score[0] === m.score[1]))) throw new Error("Partida ou placar inválido.");
