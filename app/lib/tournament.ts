@@ -132,7 +132,7 @@ export function validateState(value: unknown, previous?: Championship): asserts 
     if (!d || !Array.isArray(d.teams) || d.teams.length > 32 || typeof d.started !== "boolean" || !Array.isArray(d.matches) || !Array.isArray(d.semis) || !Array.isArray(d.seeded) || !Array.isArray(d.tieOrder)) throw new Error("Modalidade inválida.");
     const ids = new Set<string>(), names = new Set<string>();
     for (const t of d.teams) {
-      if (!t || typeof t.id !== "string" || !t.id || t.id.length > 80 || ids.has(t.id) || typeof t.name !== "string" || !t.name.trim() || t.name.length > 40 || names.has(t.name.trim().toLocaleLowerCase()) || !/^#[0-9a-f]{6}$/i.test(t.color) || !Array.isArray(t.players) || t.players.length !== rosterSize[sport] || t.players.some(p => !personIds.has(p)) || new Set(t.players).size !== t.players.length) throw new Error("Selecione as pessoas cadastradas, sem repetir alguém dentro do mesmo time.");
+      if (!t || typeof t.id !== "string" || !t.id || t.id.length > 80 || ids.has(t.id) || typeof t.name !== "string" || !t.name.trim() || t.name.length > 40 || names.has(t.name.trim().toLocaleLowerCase()) || !/^#[0-9a-f]{6}$/i.test(t.color) || !Array.isArray(t.players) || (t.players.length < 1 || t.players.length > rosterSize[sport]) || t.players.some(p => !personIds.has(p)) || new Set(t.players).size !== t.players.length) throw new Error("Informe o nome do time e selecione pelo menos uma das pessoas cadastradas, sem repetir alguém dentro do mesmo time.");
       ids.add(t.id); names.add(t.name.trim().toLocaleLowerCase());
     }
     if (d.started && d.teams.length < 4) throw new Error("Cadastre pelo menos 4 times.");
@@ -151,7 +151,7 @@ export function validateState(value: unknown, previous?: Championship): asserts 
       matchIds.add(m.id);
       if (m.lineups && (!Array.isArray(m.lineups.a) || !Array.isArray(m.lineups.b))) throw new Error("Escalação inválida.");
       const chosen = lineups(d, m);
-      if ([chosen.a, chosen.b].some(players => players.length !== rosterSize[sport] || new Set(players).size !== players.length || players.some(id => !personIds.has(id)))) throw new Error("A escalação deve ter a quantidade correta de pessoas cadastradas.");
+      if ((["a", "b"] as const).some(side => { const players = chosen[side], expectedSize = d.teams.find(t => t.id === m[side])!.players.length; return players.length !== expectedSize || new Set(players).size !== players.length || players.some(id => !personIds.has(id)); })) throw new Error("A escalação deve manter a quantidade de pessoas cadastradas em cada time.");
       const conflict = sharedPlayers(d, m);
       if (conflict.length && (m.playing || m.score)) {
         const oldDivision = previous?.divisions[sport], old = oldDivision && allMatches(oldDivision).find(old => old.id === m.id);
