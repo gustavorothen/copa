@@ -19,7 +19,6 @@ O último comando informa o database_id (UUID). Copie esse ID e execute:
 ```sh
 npm run configure:cloudflare -- COLE_O_UUID_DO_BANCO
 npm run db:remote
-npm run build
 npm run deploy
 ```
 
@@ -41,10 +40,15 @@ Configurações de build:
 
 | Campo | Valor |
 |---|---|
-| Build command | npm run build |
+| Build command | deixar vazio |
 | Deploy command | npm run deploy |
 | Root directory | pasta contendo package.json; vazio se na raiz |
 | Variável NODE_VERSION | 22.16.0 |
+
+O comando npm run deploy executa o build com Vite e depois publica o Worker
+compilado em dist/server. Ele funciona mesmo sem um build anterior. Se você
+mantiver npm run build no campo Build command, também funciona, mas compila duas vezes.
+Troque o Deploy command padrão npx wrangler deploy por npm run deploy.
 
 Antes do primeiro deploy automático, aplique as tabelas com npm run db:remote
 no terminal autenticado. As próximas migrações também devem ser aplicadas antes
@@ -72,11 +76,19 @@ Para testar o build de produção: npm run build e npm start.
 ```sh
 npm test
 npm run typecheck
-npm run build
 npm run deploy:check
 ```
 
-deploy:check só valida o pacote, sem publicá-lo e sem exigir conta Cloudflare.
+deploy:check executa o build e valida o pacote, sem publicá-lo e sem exigir conta Cloudflare.
+
+## Erro virtual:vinext-worker-entry
+
+Esse módulo é resolvido pelo plugin Vinext durante o build do Vite. O Wrangler
+não consegue compilar diretamente worker/index.ts. Não crie um alias para
+esse módulo. No painel da Cloudflare, em Settings > Build, configure
+Deploy command como npm run deploy e deixe Build command vazio. Depois inicie
+um novo build do commit mais recente. O script usa dist/server/wrangler.json,
+gerado pelo Vite, para enviar o Worker e seus assets.
 
 ## Correção do ERESOLVE
 

@@ -17,9 +17,9 @@
     "db:remote": "node scripts/check-cloudflare.mjs && wrangler d1 migrations apply DB --remote --config wrangler.jsonc",
     "db:generate": "drizzle-kit generate",
     "configure:cloudflare": "node scripts/configure-cloudflare.mjs",
-    "deploy:check": "wrangler deploy --dry-run --config dist/server/wrangler.json",
-    "deploy": "node scripts/check-cloudflare.mjs --built && wrangler deploy --config dist/server/wrangler.json",
-    "preview": "node scripts/check-cloudflare.mjs --built && wrangler preview --config dist/server/wrangler.json"
+    "deploy:check": "node scripts/deploy-cloudflare.mjs --dry-run",
+    "deploy": "node scripts/deploy-cloudflare.mjs",
+    "preview": "node scripts/deploy-cloudflare.mjs --preview"
   },
   "dependencies": {
     "drizzle-orm": "0.45.2",
