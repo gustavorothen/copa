@@ -107,7 +107,14 @@ export function tvGroupRounds(d: Division) {
 }
 export function eraseFinishedDivision(d: Division) {
   if (!divisionFinished(d)) throw new Error("Conclua a final e a disputa de terceiro lugar antes de apagar esta modalidade.");
-  Object.assign(d, emptyDivision());
+  Object.assign(d, emptyDivision(), { teams: d.teams });
+}
+export function tvTeamsSlide(state: Championship, step: number) {
+  const sport = sports[step % sports.length], allTeams = state.divisions[sport].teams;
+  const names = new Map(state.people.map(person => [person.id, person.name]));
+  const size = allTeams.some(team => team.name.length > 30 || team.players.some(id => (names.get(id)?.length ?? 0) > 40)) ? 2 : 4;
+  const pages = Math.max(1, Math.ceil(allTeams.length / size)), page = Math.floor(step / sports.length) % pages;
+  return { sport, page, pages, total: allTeams.length, teams: allTeams.slice(page * size, (page + 1) * size) };
 }
 export function semifinalPairs(d: Division) {
   const ranked = standings(d).slice(0, 4);

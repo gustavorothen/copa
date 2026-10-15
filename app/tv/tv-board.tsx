@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, type CSSProperties } from "react";
-import { Championship, Division, Match, Sport, tvGroupRounds, divisionFinished, emptyState, groupsDone, labels, podium, sports, standings, winner } from "../lib/tournament";
+import { Division, Match, Sport, tvGroupRounds, divisionFinished, groupsDone, labels, podium, sports, standings, winner } from "../lib/tournament";
+import useTVData from "./use-tv-data";
 import "./tv.css";
 
 function TVMatch({ match, division, label }: { match?: Match | null; division: Division; label?: string }) {
@@ -67,7 +68,7 @@ function TVPodium({ division, sport }: { division: Division; sport: Sport }) {
   const places = podium(division), champion = division.teams.find(t => t.id === places[0]);
   return <section className="tv-podium" aria-label={`Pódio final de ${labels[sport].toLowerCase()}`}>
     <div className="tv-podium-confetti" aria-hidden="true">{Array.from({ length: 32 }, (_, i) => <i key={i} style={{ left: `${(i * 37 + 7) % 100}%`, background: ["#e8b734", "#df8bb3", "#7ca5d8", "#74b7a2", "#a193d6"][i % 5], animationDelay: `${-(i % 9)}s`, animationDuration: `${6 + i % 4}s`, "--drift": `${i % 2 ? 50 : -50}px` } as CSSProperties} />)}</div>
-    <div className="tv-champion-heading"><span aria-hidden="true">🏆</span><p>É campeão!</p><h3>{champion?.name}</h3></div>
+    <div className="tv-champion-heading"><img className="tv-champion-photo" src="/madu-trofeu.png" alt="Madu com coroa no troféu da Copa Madu" width={2170} height={3059} /><p>É campeão!</p><h3>{champion?.name}</h3></div>
     <div className="tv-podium-places">{[2, 1, 3].map(place => {
       const team = division.teams.find(t => t.id === places[place - 1]);
       return <div key={place} className={`tv-podium-place tv-place-${place}`}><span aria-hidden="true">{["🥇", "🥈", "🥉"][place - 1]}</span><strong>{team?.name}</strong><div style={{ borderBottomColor: team?.color }}><b>{place}º</b></div></div>;
@@ -85,27 +86,8 @@ function TVDivision({ sport, division, loading, tick, compact }: { sport: Sport;
 }
 
 export default function TVBoard() {
-  const [state, setState] = useState<Championship>(emptyState), [loading, setLoading] = useState(true), [error, setError] = useState(false);
-  const [updated, setUpdated] = useState(""), [tick, setTick] = useState(0), [compact, setCompact] = useState(false);
-  useEffect(() => {
-    let active = true, busy = false, controller: AbortController | null = null;
-    async function load() {
-      if (busy || document.visibilityState === "hidden") return;
-      busy = true; controller = new AbortController();
-      const timeout = window.setTimeout(() => controller?.abort(), 8000);
-      try {
-        const response = await fetch("/api/championship?view=board", { cache: "no-store", signal: controller.signal });
-        if (!response.ok) throw new Error("Falha ao carregar");
-        const body = await response.json() as { state: Championship };
-        if (active) { setState(body.state); setError(false); setUpdated(new Date().toLocaleTimeString("pt-BR")); }
-      } catch { if (active) setError(true); }
-      finally { window.clearTimeout(timeout); busy = false; if (active) setLoading(false); }
-    }
-    load();
-    const interval = window.setInterval(load, 3000);
-    document.addEventListener("visibilitychange", load); window.addEventListener("focus", load);
-    return () => { active = false; window.clearInterval(interval); controller?.abort(); document.removeEventListener("visibilitychange", load); window.removeEventListener("focus", load); };
-  }, []);
+  const { state, loading, error, updated } = useTVData("board");
+  const [tick, setTick] = useState(0), [compact, setCompact] = useState(false);
   useEffect(() => {
     const resize = () => setCompact(window.innerHeight < 1000);
     resize();

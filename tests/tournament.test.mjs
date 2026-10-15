@@ -121,10 +121,10 @@ for(const sport of ['volei','futevolei']) {
   assert.throws(()=>eraseFinishedDivision(division),/terceiro lugar/);
   recordScore(division,'third-place',[21,10]);
   assert.equal(divisionFinished(division),true);
-  const peopleBefore=structuredClone(eraseState.people);
+  const peopleBefore=structuredClone(eraseState.people),teamsBefore=structuredClone(division.teams);
   const other=sport==='volei'?'futevolei':'volei',otherBefore=structuredClone(eraseState.divisions[other]);
   eraseFinishedDivision(division);
-  assert.deepEqual(division,emptyDivision());
+  assert.deepEqual(division,{...emptyDivision(),teams:teamsBefore});
   assert.equal(divisionFinished(division),false);
   assert.deepEqual(eraseState.people,peopleBefore);
   assert.deepEqual(eraseState.divisions[other],otherBefore);
@@ -155,4 +155,17 @@ for(const match of summaryDivision.matches)recordScore(summaryDivision,match.id,
 assert.equal(tvGroupRounds(summaryDivision).lastFinishedRound,5);
 assert.equal(tvGroupRounds(summaryDivision).nextRound,null);
 assert.deepEqual(tvGroupRounds(summaryDivision).upcoming,[]);
-console.log('PASS: tournament rules and TV completed-round results followed by unscored upcoming matches.');
+const {tvTeamsSlide}=await import('../app/lib/tournament.ts');
+const slides=demoState();
+assert.equal(tvTeamsSlide(slides,0).sport,'volei');
+assert.equal(tvTeamsSlide(slides,1).sport,'futevolei');
+for(const [offset,sport] of [[0,'volei'],[1,'futevolei']]) {
+  const first=tvTeamsSlide(slides,offset),second=tvTeamsSlide(slides,offset+2);
+  assert.deepEqual([...first.teams,...second.teams],slides.divisions[sport].teams);
+  assert.equal(second.page,1);assert.equal(tvTeamsSlide(slides,offset+4).page,0);
+}
+slides.people[0].name='Um nome de participante comprido para verificar a leitura na TV';
+assert.equal(tvTeamsSlide(slides,0).teams.length,2);
+assert.equal(tvTeamsSlide(emptyState(),0).pages,1);
+assert.deepEqual(tvTeamsSlide(emptyState(),1).teams,[]);
+console.log('PASS: tournament rules, preserved teams after clearing matches, TV rounds and alternating roster pages.');
