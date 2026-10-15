@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState, type CSSProperties } from "react";
-import { Championship, Division, Match, Sport, currentGroupRound, divisionFinished, emptyState, groupsDone, labels, podium, sports, standings, winner } from "../lib/tournament";
+import { Championship, Division, Match, Sport, tvGroupRounds, divisionFinished, emptyState, groupsDone, labels, podium, sports, standings, winner } from "../lib/tournament";
 import "./tv.css";
 
 function TVMatch({ match, division, label }: { match?: Match | null; division: Division; label?: string }) {
@@ -17,10 +17,12 @@ function TVMatch({ match, division, label }: { match?: Match | null; division: D
 }
 
 function TVGroups({ division, tick, compact }: { division: Division; tick: number; compact: boolean }) {
-  const rank = standings(division), size = compact ? 6 : 8;
+  const rank = standings(division), size = 6;
   const pages = Math.max(1, Math.ceil(rank.length / size)), page = tick % pages;
-  const round = currentGroupRound(division), matches = division.matches.filter(m => m.round === round);
-  const matchSize = compact ? 2 : 4, matchPages = Math.max(1, Math.ceil(matches.length / matchSize)), matchPage = tick % matchPages;
+  const { lastFinishedRound, results, nextRound, upcoming } = tvGroupRounds(division);
+  const matchSize = compact ? 2 : 3, resultPages = Math.max(1, Math.ceil(results.length / matchSize)), resultPage = tick % resultPages;
+  const upcomingPages = Math.max(1, Math.ceil(upcoming.length / matchSize)), upcomingPage = tick % upcomingPages;
+  const team = (id: string) => division.teams.find(t => t.id === id);
   return <div className="tv-groups">
     <section className="tv-ranking" aria-label="Classificação atual">
       <div className="tv-section-title"><h3>Quem está passando</h3>{pages > 1 && <span>{page + 1} / {pages}</span>}</div>
@@ -31,10 +33,21 @@ function TVGroups({ division, tick, compact }: { division: Division; tick: numbe
         </tr>)}</tbody></table> : <p className="tv-empty">Aguardando os times</p>}
       {rank.length > 0 && <small className="tv-ranking-note"><i /> Os 4 primeiros avançam</small>}
     </section>
-    <section className="tv-current-round" aria-label="Jogos da rodada atual">
-      <div className="tv-section-title"><h3>{round === null ? "Próximos jogos" : `Rodada ${round}`}</h3><span>{matchPages > 1 ? `${matchPage + 1} / ${matchPages}` : groupsDone(division) ? "Grupos encerrados" : "Jogos da rodada"}</span></div>
-      <div className="tv-round-games">{matches.slice(matchPage * matchSize, (matchPage + 1) * matchSize).map(match => <TVMatch key={match.id} match={match} division={division} />)}</div>
-      {!matches.length && <p className="tv-empty">Aguardando a geração das rodadas</p>}
+    <section className="tv-last-round" aria-label="Última rodada finalizada">
+      <div className="tv-section-title"><h3>Última rodada finalizada{lastFinishedRound !== null ? ` · ${lastFinishedRound}` : ""}</h3>{resultPages > 1 && <span>{resultPage + 1} / {resultPages}</span>}</div>
+      <div className="tv-results">{results.slice(resultPage * matchSize, (resultPage + 1) * matchSize).map(match => <div key={match.id} className="tv-result-line">
+        <span className={winner(match) === match.a ? "tv-line-winner" : ""}><i style={{ background: team(match.a)?.color }} />{team(match.a)?.name}</span>
+        <strong>{match.score?.[0]} <small>×</small> {match.score?.[1]}</strong>
+        <span className={winner(match) === match.b ? "tv-line-winner" : ""}>{team(match.b)?.name}<i style={{ background: team(match.b)?.color }} /></span>
+      </div>)}</div>
+      {!results.length && <p className="tv-round-empty">Nenhuma rodada finalizada ainda</p>}
+    </section>
+    <section className="tv-next-round" aria-label="Próximas partidas">
+      <div className="tv-section-title"><h3>Próximas partidas</h3><span>{nextRound !== null ? `Rodada ${nextRound}` : ""}{upcomingPages > 1 ? ` · ${upcomingPage + 1} / ${upcomingPages}` : ""}</span></div>
+      <div className="tv-upcoming">{upcoming.slice(upcomingPage * matchSize, (upcomingPage + 1) * matchSize).map(match => <div key={match.id} className={`tv-upcoming-line${match.playing ? " tv-upcoming-live" : ""}`}>
+        <span><i style={{ background: team(match.a)?.color }} />{team(match.a)?.name}</span><b>×</b><span>{team(match.b)?.name}<i style={{ background: team(match.b)?.color }} /></span>{match.playing && <small>em quadra</small>}
+      </div>)}</div>
+      {!upcoming.length && <p className="tv-round-empty">{groupsDone(division) ? "Todos os jogos dos grupos concluídos" : "Aguardando a geração das rodadas"}</p>}
     </section>
   </div>;
 }
@@ -73,7 +86,7 @@ function TVDivision({ sport, division, loading, tick, compact }: { sport: Sport;
 
 export default function TVBoard() {
   const [state, setState] = useState<Championship>(emptyState), [loading, setLoading] = useState(true), [error, setError] = useState(false);
-  const [updated, setUpdated] = useState(""), [tick, setTick] = useState(0), [compact, setCompact] = useState(false), [fullscreen, setFullscreen] = useState(false);
+  const [updated, setUpdated] = useState(""), [tick, setTick] = useState(0), [compact, setCompact] = useState(false);
   useEffect(() => {
     let active = true, busy = false, controller: AbortController | null = null;
     async function load() {
@@ -95,17 +108,13 @@ export default function TVBoard() {
   }, []);
   useEffect(() => {
     const resize = () => setCompact(window.innerHeight < 1000);
-    const full = () => setFullscreen(Boolean(document.fullscreenElement));
-    resize(); full();
+    resize();
     const timer = window.setInterval(() => setTick(value => value + 1), 10000);
-    window.addEventListener("resize", resize); document.addEventListener("fullscreenchange", full);
-    return () => { window.clearInterval(timer); window.removeEventListener("resize", resize); document.removeEventListener("fullscreenchange", full); };
+    window.addEventListener("resize", resize);
+    return () => { window.clearInterval(timer); window.removeEventListener("resize", resize); };
   }, []);
-  async function toggleFullscreen() {
-    try { if (document.fullscreenElement) await document.exitFullscreen(); else await document.documentElement.requestFullscreen(); } catch { /* The TV can also use its browser's fullscreen control. */ }
-  }
   return <main className="tv-screen">
-    <header className="tv-top"><div className="tv-brand"><img src="/madu.png" alt="Madu com uma coroa no troféu" width={60} height={60} /><div><h1>{state.title}<span>♡</span></h1><p>aniversário + vôlei + futevôlei</p></div></div><div className="tv-top-right"><span className={`tv-connection${error ? " tv-offline" : ""}`} role="status">{error ? "Reconectando…" : loading ? "Conectando…" : "● Ao vivo"}</span><button type="button" onClick={toggleFullscreen}>{fullscreen ? "Sair da tela cheia" : "Tela cheia"}</button></div></header>
+    <header className="tv-top"><div className="tv-brand"><img src="/madu.png" alt="Madu com uma coroa no troféu" width={60} height={60} /><div><h1>{state.title}<span>♡</span></h1><p>aniversário + vôlei + futevôlei</p></div></div></header>
     <div className="tv-split">{sports.map(sport => <TVDivision key={sport} sport={sport} division={state.divisions[sport]} loading={loading} tick={tick} compact={compact} />)}</div>
     <footer className="tv-footer"><span>✧ parabéns, Madu! ✧</span><span>{error ? updated ? `Últimos dados recebidos às ${updated} · tentando reconectar` : "Tentando carregar o campeonato…" : updated ? `Atualizado às ${updated}` : "Carregando o campeonato…"}</span></footer>
   </main>;

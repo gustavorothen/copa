@@ -93,6 +93,18 @@ export function currentGroupRound(d: Division): number | null {
   const pending = d.matches.filter(m => !m.score);
   return pending.length ? Math.min(...pending.map(m => m.round)) : Math.max(...d.matches.map(m => m.round));
 }
+export function tvGroupRounds(d: Division) {
+  const rounds = [...new Set(d.matches.map(m => m.round))];
+  const finished = rounds.filter(round => d.matches.filter(m => m.round === round).every(m => m.score !== null));
+  const lastFinishedRound = finished.length ? Math.max(...finished) : null;
+  const pendingRound = currentGroupRound(d);
+  return {
+    lastFinishedRound,
+    results: d.matches.filter(m => m.round === lastFinishedRound),
+    nextRound: d.matches.some(m => m.round === pendingRound && !m.score) ? pendingRound : null,
+    upcoming: d.matches.filter(m => m.round === pendingRound && !m.score).sort((a, b) => Number(Boolean(b.playing)) - Number(Boolean(a.playing))),
+  };
+}
 export function eraseFinishedDivision(d: Division) {
   if (!divisionFinished(d)) throw new Error("Conclua a final e a disputa de terceiro lugar antes de apagar esta modalidade.");
   Object.assign(d, emptyDivision());
