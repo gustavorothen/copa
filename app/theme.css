@@ -1,0 +1,45 @@
+/* Remove this import from layout.tsx to restore the original blue palette. */
+:root{--madu-canvas:#fffbea;--madu-surface:#fffef9;--madu-soft:#fff9e6;--madu-selected:#f8efce;--madu-border:#e4d9b8;--madu-line:#eee5ca;--madu-ink:#65563f;--madu-muted:#80735f;--madu-header-top:#faf1cd;--madu-header-bottom:#f0e3ad;--madu-accent:#e9daa4;--madu-rose:#aa5d82}
+html body{background:var(--madu-canvas)}
+html .madu-top,html .tv-top,html .admin-bar{background:linear-gradient(var(--madu-header-top),var(--madu-header-bottom));border-color:#daca91;color:var(--madu-ink)}
+html .madu-logo,html .madu-top-caption,html .tv-brand h1,html .tv-brand p,html .admin-bar a,html .admin-bar>span{color:var(--madu-ink)}
+html .madu-logo b,html .madu-logo span,html .tv-brand h1 span{color:var(--madu-rose)}
+html .madu-profile,html .madu-community,html .tv-division{background:var(--madu-surface);border-color:var(--madu-border)}
+html .madu-profile h1,html .madu-page-title h2,html .madu-passing h3,html .madu-podium h3,html .madu-public-team h4,html .madu-public-team-group>h3{color:var(--madu-ink)}
+html .madu-stage,html .madu-stage small,html .madu-profile-note,html .madu-top-four b,html .madu-top-four small,html .madu-standing-score span,html .madu-round h3,html .madu-team small,html .madu-team,html .madu-team>b,html .madu-team-search,html .madu-search-hint,html .madu-public-team>small,html .madu-teams-empty{color:var(--madu-muted)}
+html .madu-standing-score strong,html .madu-celebration-card strong{color:var(--madu-ink)}
+html .madu-sport-tabs{border-color:var(--madu-border)}
+html .madu-sport-tabs button,html .madu-view-tabs button{background:var(--madu-soft);border-color:var(--madu-border);color:var(--madu-ink)}
+html .madu-sport-tabs button[aria-pressed=true]{background:var(--madu-surface);border-color:#d5c690;color:var(--madu-ink)}
+html .madu-view-tabs button[aria-pressed=true]{background:var(--madu-accent);border-color:#d5c690;color:var(--madu-ink)}
+html .madu-top-four,html .madu-top-four>div{border-color:var(--madu-line)}
+html .madu-top-four>div{background:var(--madu-soft)}
+html .madu-game,html .madu-team-search input{background:var(--madu-surface);border-color:var(--madu-border)}
+html .madu-team+.madu-team,html .madu-game p,html .madu-podium,html .madu-public-team ul,html .madu-public-team li{border-color:var(--madu-line)}
+html .madu-game p,html .madu-public-team{background:var(--madu-soft);color:var(--madu-muted)}
+html .madu-public-team{border-left-color:var(--madu-border);border-right-color:var(--madu-border);border-bottom-color:var(--madu-border)}
+html .madu-connection i,html .madu-connection b{border-color:#d5c690}
+html .madu-podium-step{background:#f2eee1;border-left-color:var(--madu-border);border-right-color:var(--madu-border);border-top-color:var(--madu-border)}
+html .place-1 .madu-podium-step{background:#f8efce}html .place-3 .madu-podium-step{background:#f3e9dd}
+html .madu-podium-step b{color:var(--madu-muted)}
+html .madu-celebration-card{border-left-color:var(--madu-border);border-right-color:var(--madu-border);border-top-color:var(--madu-border);box-shadow:0 12px 45px #74633b25}
+html .madu-celebration-card p{color:var(--madu-muted)}
+html .tv-screen{background:var(--madu-canvas);color:var(--madu-ink)}
+html .tv-division-heading,html .tv-futevolei .tv-division-heading{background:var(--madu-soft);border-color:var(--madu-line)}
+html .tv-division-heading>span,html .tv-section-title>span,html .tv-ranking-note,html .tv-ranking thead th,html .tv-ranking .tv-position,html .tv-empty,html .tv-round-empty,html .tv-footer{color:var(--madu-muted)}
+html .tv-ranking table,html .tv-ranking tbody th,html .tv-ranking td,html .tv-ranking .tv-points{color:var(--madu-ink);border-color:var(--madu-line)}
+html .tv-ranking .tv-qualified{background:var(--madu-soft)}html .tv-ranking-note i{background:var(--madu-accent)}
+html .tv-match,html .tv-result-line,html .tv-upcoming-line{background:var(--madu-surface);border-color:var(--madu-border)}
+html .tv-match-team,html .tv-match-team>strong,html .tv-result-line,html .tv-upcoming-line{color:var(--madu-ink)}
+html .tv-match-team+.tv-match-team{border-color:var(--madu-line)}html .tv-match-meta{color:var(--madu-muted)}
+html .tv-match-winner{background:#f2f5e8}html .tv-match-live,html .tv-upcoming-live{background:#f3f6eb;border-color:#b3c29a}
+html .tv-bracket-grid h4{color:var(--madu-muted)}html .tv-bracket-connector,html .tv-bracket-connector:after{border-color:#d5c690}
+html .tv-podium{background:linear-gradient(#fffbed,var(--madu-surface))}html .tv-podium-place>div{background:#f2eee1;border-top-color:var(--madu-border);border-left-color:var(--madu-border);border-right-color:var(--madu-border)}
+html .tv-place-1>div{background:#f8efce}html .tv-place-3>div{background:#f3e9dd}html .tv-podium-place b{color:var(--madu-muted)}
+html .tv-champion-heading>p,html .tv-footer>span:first-child{color:var(--madu-rose)}
+html .admin-app .primary{background:var(--madu-accent);color:var(--madu-ink)}html .admin-app .primary:hover:not(:disabled){background:#e1d096}
+html .admin-app .panel,html .admin-app .team-card,html .admin-app .match-card,html .admin-app .modal input,html .admin-app select,html .people-search input,html .person-results{border-color:var(--madu-border)}
+html .admin-app .sport-switch,html .admin-app .advance-bar,html .admin-app .info-note,html .match-controls button,html .person-results button:hover,html .person-results button[aria-selected=true]{background:var(--madu-soft);border-color:var(--madu-border);color:var(--madu-ink)}
+html .admin-app .sport-switch button,html .admin-app .sport-switch button span,html .admin-app .match-meta,html .admin-app .match-action,html .admin-app .match-round h3,html .admin-app .advance-bar,html .admin-app .info-note,html .admin-app .modal label,html .admin-app .heading-kicker,html .admin-app .toast,html .admin-winner,html .admin-footer,html .admin-footer .text-button,html .people-list strong,html .person-results button,html .quick-person,html .lineup-columns h3{color:var(--madu-ink)}
+html .people-search small,html .people-list span,html .person-help,html .person-results>span,html .match-lineup-note{color:var(--madu-muted)}
+html .people-list article,html .finished-championship-controls{border-color:var(--madu-line)}
