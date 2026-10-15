@@ -160,12 +160,16 @@ const slides=demoState();
 assert.equal(tvTeamsSlide(slides,0).sport,'volei');
 assert.equal(tvTeamsSlide(slides,1).sport,'futevolei');
 for(const [offset,sport] of [[0,'volei'],[1,'futevolei']]) {
+  assert.deepEqual(tvTeamsSlide(slides,offset).teams,slides.divisions[sport].teams);
+  assert.equal(tvTeamsSlide(slides,offset).pages,1);
+  slides.divisions[sport].teams.push({...slides.divisions[sport].teams[0],id:`${sport}-extra`,name:'Time extra'});
   const first=tvTeamsSlide(slides,offset),second=tvTeamsSlide(slides,offset+2);
+  assert.equal(first.teams.length,6);assert.equal(second.teams.length,1);
   assert.deepEqual([...first.teams,...second.teams],slides.divisions[sport].teams);
   assert.equal(second.page,1);assert.equal(tvTeamsSlide(slides,offset+4).page,0);
 }
 slides.people[0].name='Um nome de participante comprido para verificar a leitura na TV';
-assert.equal(tvTeamsSlide(slides,0).teams.length,2);
+assert.equal(tvTeamsSlide(slides,0).teams.length,6);
 assert.equal(tvTeamsSlide(emptyState(),0).pages,1);
 assert.deepEqual(tvTeamsSlide(emptyState(),1).teams,[]);
 console.log('PASS: tournament rules, preserved teams after clearing matches, TV rounds and alternating roster pages.');

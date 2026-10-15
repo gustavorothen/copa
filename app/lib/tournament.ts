@@ -111,8 +111,7 @@ export function eraseFinishedDivision(d: Division) {
 }
 export function tvTeamsSlide(state: Championship, step: number) {
   const sport = sports[step % sports.length], allTeams = state.divisions[sport].teams;
-  const names = new Map(state.people.map(person => [person.id, person.name]));
-  const size = allTeams.some(team => team.name.length > 30 || team.players.some(id => (names.get(id)?.length ?? 0) > 40)) ? 2 : 4;
+  const size = 6;
   const pages = Math.max(1, Math.ceil(allTeams.length / size)), page = Math.floor(step / sports.length) % pages;
   return { sport, page, pages, total: allTeams.length, teams: allTeams.slice(page * size, (page + 1) * size) };
 }

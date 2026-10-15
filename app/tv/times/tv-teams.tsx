@@ -18,7 +18,7 @@ export default function TVTeams() {
   return <main className="tv-screen tv-rosters">
     <header className="tv-top tv-rosters-heading"><img src="/madu.png" alt="Madu com uma coroa no troféu" width={72} height={72} /><h1>{state.title} <span>— Times de {labels[sport]}</span></h1><span className="tv-rosters-ball" aria-hidden="true">{sport === "volei" ? "🏐" : "⚽"}</span></header>
     <section key={`${sport}-${page}`} className={`tv-teams-grid${teams.length <= 2 ? " tv-teams-single-row" : ""}`} aria-label={`Times de ${labels[sport].toLowerCase()}`}>
-      {teams.map(team => <article key={team.id} className="tv-roster-card" style={{ borderTopColor: team.color }}>
+      {teams.map(team => <article key={team.id} className={`tv-roster-card${team.name.length > 30 || team.players.some(id => (names.get(id)?.length ?? 0) > 40) ? " tv-roster-long" : ""}`} style={{ borderTopColor: team.color }}>
         <h2><i style={{ background: team.color }} />{team.name}</h2>
         <ul>{team.players.map(id => <li key={id}>{names.get(id) ?? "Participante não informado"}</li>)}</ul>
       </article>)}
