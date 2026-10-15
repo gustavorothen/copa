@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {emptyState,emptyDivision,schedule,recordScore,standings,qualify,winner,loser,podium,resetGroups,divisionFinished,eraseFinishedDivision,publicState,validateState,needsDraw,normalizeState,startMatch,stopMatch,lineups,setLineups,sharedPlayers,allMatches,demoState} from '../app/lib/tournament.ts';
+import {emptyState,emptyDivision,schedule,recordScore,standings,qualify,winner,loser,podium,resetGroups,divisionFinished,eraseFinishedDivision,currentGroupRound,publicState,validateState,needsDraw,normalizeState,startMatch,stopMatch,lineups,setLineups,sharedPlayers,allMatches,demoState} from '../app/lib/tournament.ts';
 function addDivision(s,sport,n=4){const size=sport==='volei'?6:2;const d=s.divisions[sport];d.teams=Array.from({length:n},(_,i)=>({id:`${sport}-t${i}`,name:`Time ${i}`,color:'#aa88cc',players:Array.from({length:size},(_,j)=>{const id=`${sport}-person-${i}-${j}`;s.people.push({id,name:`${sport} Pessoa ${i}-${j}`});return id;})}));d.started=true;d.matches=schedule(d.teams);return d;}
 for(let n=4;n<=12;n++){const s=emptyState(),d=addDivision(s,'volei',n);assert.equal(d.matches.length,n*(n-1)/2);assert.equal(new Set(d.matches.map(m=>[m.a,m.b].sort().join(':'))).size,d.matches.length);for(const r of new Set(d.matches.map(m=>m.round))){const ids=d.matches.filter(m=>m.round===r).flatMap(m=>[...new Set([...lineups(d,m).a,...lineups(d,m).b])]);assert.equal(new Set(ids).size,ids.length);}validateState(s);}
 const s=emptyState(),d=addDivision(s,'futevolei');d.teams[3].players[0]=d.teams[0].players[0];d.matches=schedule(d.teams);
@@ -130,4 +130,15 @@ for(const sport of ['volei','futevolei']) {
   assert.deepEqual(eraseState.divisions[other],otherBefore);
   validateState(eraseState);
 }
-console.log('PASS: podium, knockout and player validation, group resets, completed-division deletion preserving people and the other sport.');
+const tvState=demoState(),tvDivision=tvState.divisions.volei;
+assert.equal(currentGroupRound(emptyDivision()),null);
+tvDivision.matches.forEach(match=>{match.score=null;match.playing=false;});
+assert.equal(currentGroupRound(tvDivision),1);
+const later=tvDivision.matches.find(match=>match.round===3);later.playing=true;
+assert.equal(currentGroupRound(tvDivision),3,'TV prioritizes the round with a game in progress');
+later.playing=false;
+tvDivision.matches.filter(match=>match.round===1).forEach(match=>recordScore(tvDivision,match.id,[21,10]));
+assert.equal(currentGroupRound(tvDivision),2,'TV advances when every match in a round is finished');
+for(const match of tvDivision.matches)recordScore(tvDivision,match.id,[21,10]);
+assert.equal(currentGroupRound(tvDivision),Math.max(...tvDivision.matches.map(match=>match.round)));
+console.log('PASS: tournament rules, scoped deletion, and automatic TV round selection.');
