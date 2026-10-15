@@ -85,6 +85,11 @@ export const groupsDone = (d: Division) => d.started && d.matches.length > 0 && 
 export const winner = (m: Match | null) => m?.score ? (m.score[0] > m.score[1] ? m.a : m.b) : null;
 export const loser = (m: Match | null) => m?.score ? (m.score[0] > m.score[1] ? m.b : m.a) : null;
 export const podium = (d: Division) => [winner(d.final), loser(d.final), winner(d.thirdPlace ?? null)];
+export const divisionFinished = (d: Division) => Boolean(winner(d.final) && winner(d.thirdPlace ?? null));
+export function eraseFinishedDivision(d: Division) {
+  if (!divisionFinished(d)) throw new Error("Conclua a final e a disputa de terceiro lugar antes de apagar esta modalidade.");
+  Object.assign(d, emptyDivision());
+}
 export function semifinalPairs(d: Division) {
   const ranked = standings(d).slice(0, 4);
   const candidates = [[[0, 3], [1, 2]], [[0, 2], [1, 3]], [[0, 1], [2, 3]]];

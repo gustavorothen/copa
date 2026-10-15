@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {emptyState,schedule,recordScore,standings,qualify,winner,loser,podium,resetGroups,publicState,validateState,needsDraw,normalizeState,startMatch,stopMatch,lineups,setLineups,sharedPlayers,allMatches,demoState} from '../app/lib/tournament.ts';
+import {emptyState,emptyDivision,schedule,recordScore,standings,qualify,winner,loser,podium,resetGroups,divisionFinished,eraseFinishedDivision,publicState,validateState,needsDraw,normalizeState,startMatch,stopMatch,lineups,setLineups,sharedPlayers,allMatches,demoState} from '../app/lib/tournament.ts';
 function addDivision(s,sport,n=4){const size=sport==='volei'?6:2;const d=s.divisions[sport];d.teams=Array.from({length:n},(_,i)=>({id:`${sport}-t${i}`,name:`Time ${i}`,color:'#aa88cc',players:Array.from({length:size},(_,j)=>{const id=`${sport}-person-${i}-${j}`;s.people.push({id,name:`${sport} Pessoa ${i}-${j}`});return id;})}));d.started=true;d.matches=schedule(d.teams);return d;}
 for(let n=4;n<=12;n++){const s=emptyState(),d=addDivision(s,'volei',n);assert.equal(d.matches.length,n*(n-1)/2);assert.equal(new Set(d.matches.map(m=>[m.a,m.b].sort().join(':'))).size,d.matches.length);for(const r of new Set(d.matches.map(m=>m.round))){const ids=d.matches.filter(m=>m.round===r).flatMap(m=>[...new Set([...lineups(d,m).a,...lineups(d,m).b])]);assert.equal(new Set(ids).size,ids.length);}validateState(s);}
 const s=emptyState(),d=addDivision(s,'futevolei');d.teams[3].players[0]=d.teams[0].players[0];d.matches=schedule(d.teams);
@@ -109,4 +109,25 @@ resetGroups(resetDivision);
 assert.equal(resetDivision.started,false);assert.equal(resetDivision.matches.length,0);
 assert.deepEqual(resetDivision.teams,registeredTeams);assert.deepEqual(resetState.people,registeredPeople);
 validateState(resetState);
-console.log('PASS: third-place generation, podium, legacy knockout preservation, concurrent final/bronze conflicts, score corrections, group regeneration and deletion, variable rosters and player validation.');
+for(const sport of ['volei','futevolei']) {
+  const eraseState=demoState(),division=eraseState.divisions[sport];
+  assert.equal(divisionFinished(division),false);
+  assert.throws(()=>eraseFinishedDivision(division),/Conclua a final/);
+  for(const match of division.matches)recordScore(division,match.id,[21,10]);
+  division.tieOrder=division.teams.map(team=>team.id);qualify(division);
+  for(const match of division.semis)recordScore(division,match.id,[21,10]);
+  recordScore(division,'final',[21,10]);
+  assert.equal(divisionFinished(division),false);
+  assert.throws(()=>eraseFinishedDivision(division),/terceiro lugar/);
+  recordScore(division,'third-place',[21,10]);
+  assert.equal(divisionFinished(division),true);
+  const peopleBefore=structuredClone(eraseState.people);
+  const other=sport==='volei'?'futevolei':'volei',otherBefore=structuredClone(eraseState.divisions[other]);
+  eraseFinishedDivision(division);
+  assert.deepEqual(division,emptyDivision());
+  assert.equal(divisionFinished(division),false);
+  assert.deepEqual(eraseState.people,peopleBefore);
+  assert.deepEqual(eraseState.divisions[other],otherBefore);
+  validateState(eraseState);
+}
+console.log('PASS: podium, knockout and player validation, group resets, completed-division deletion preserving people and the other sport.');

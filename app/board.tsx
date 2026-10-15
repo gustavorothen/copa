@@ -1,7 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Championship, Division, Match, Sport, Team, emptyState, groupsDone, labels, standings, winner, podium } from "./lib/tournament";
+import { Championship, Division, Match, Sport, Team, emptyState, groupsDone, labels, standings, winner, podium, divisionFinished } from "./lib/tournament";
 import PublicTeams from "./public-teams";
+import ChampionCelebration from "./champion-celebration";
 
 function TeamRow({ team, score, seed, won = false }: { team?: Team; score?: number | null; seed?: string; won?: boolean }) {
   return <div className={won ? "madu-team won" : "madu-team"}>
@@ -54,8 +55,10 @@ export default function Home() {
     window.addEventListener("focus", load);
     return () => { active = false; clearInterval(interval); window.removeEventListener("focus", load); };
   }, [view]);
-  const status = champion && winner(d.thirdPlace ?? null) ? "Campeonato encerrado" : champion ? "Disputa de terceiro lugar" : d.final ? "Final e terceiro lugar" : d.seeded.length ? "Semifinais" : groupsDone(d) ? "Grupos encerrados" : d.started ? "Fase de grupos" : "Aguardando os times";
+  const finished = divisionFinished(d), championTeam = d.teams.find(t => t.id === champion);
+  const status = finished ? "Campeonato encerrado" : champion ? "Disputa de terceiro lugar" : d.final ? "Final e terceiro lugar" : d.seeded.length ? "Semifinais" : groupsDone(d) ? "Grupos encerrados" : d.started ? "Fase de grupos" : "Aguardando os times";
   return <div className="madu-site">
+    {!loading && !error && finished && championTeam && <ChampionCelebration key={`${sport}-${championTeam.id}`} team={championTeam} sport={sport} />}
     <header className="madu-top"><a className="madu-logo" href="/">copa <b>madu</b><span>♡</span></a><span className="madu-top-caption">aniversário + vôlei + futevôlei</span></header>
     <div className="madu-layout">
       <aside className="madu-profile">
