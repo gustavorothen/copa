@@ -24,6 +24,6 @@ export default function TVTeams() {
       </article>)}
       {!teams.length && <p className="tv-rosters-empty">{loading ? "Carregando os times…" : "Nenhum time cadastrado nesta modalidade"}</p>}
     </section>
-    <footer className="tv-footer tv-rosters-footer"><span>{total} {total === 1 ? "time" : "times"}{pages > 1 ? ` · Página ${page + 1} de ${pages}` : ""}</span><span>Próxima: {labels[nextSport]} · troca a cada 15 segundos</span><span>{error ? "Reconectando aos dados…" : updated ? `Atualizado às ${updated}` : "Carregando…"}</span></footer>
+    <footer className="tv-footer tv-rosters-footer"><span>{total} {total === 1 ? "time" : "times"}{pages > 1 ? ` · Página ${page + 1} de ${pages}` : ""}</span><span>Próxima: {labels[nextSport]} · troca a cada 15 segundos</span><a className="tv-rosters-shortcut" href="/tv">Ver placares →</a><span>{error ? "Reconectando aos dados…" : updated ? `Atualizado às ${updated}` : "Carregando…"}</span></footer>
   </main>;
 }

@@ -65,7 +65,7 @@ export default function Home() {
         <div className="madu-photo-frame"><img src="/madu.png" alt="Madu com uma coroa, dentro de um troféu amarelo" width="640" height="640" /></div>
         <h1>{state.title} <span className="madu-sparkle">★</span></h1>
         <div className="madu-mini-stars" aria-hidden="true">♥ <span>★</span> ♥</div>
-        <p className="madu-profile-note">todos contra todos<br />4 times passam<br />1 campeão por modalidade</p>
+        <p className="madu-profile-note">{sport==="futevolei"?"2 partidas por time":"todos contra todos"}<br />4 times passam<br />1 campeão por modalidade</p>
         <img className="madu-confetti" src="/confetes.svg" alt="" width="200" height="90" />
       </aside>
       <main className="madu-content"><div className="madu-community">

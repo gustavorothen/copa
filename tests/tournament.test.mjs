@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {emptyState,emptyDivision,schedule,recordScore,standings,qualify,winner,loser,podium,resetGroups,divisionFinished,eraseFinishedDivision,currentGroupRound,publicState,validateState,needsDraw,normalizeState,startMatch,stopMatch,lineups,setLineups,sharedPlayers,allMatches,demoState} from '../app/lib/tournament.ts';
+import {emptyState,emptyDivision,schedule,scheduleTwoGames,generateGroups,teamOverlap,recordScore,standings,qualify,winner,loser,podium,resetGroups,divisionFinished,eraseFinishedDivision,currentGroupRound,publicState,validateState,needsDraw,normalizeState,startMatch,stopMatch,lineups,setLineups,sharedPlayers,allMatches,demoState} from '../app/lib/tournament.ts';
 function addDivision(s,sport,n=4){const size=sport==='volei'?6:2;const d=s.divisions[sport];d.teams=Array.from({length:n},(_,i)=>({id:`${sport}-t${i}`,name:`Time ${i}`,color:'#aa88cc',players:Array.from({length:size},(_,j)=>{const id=`${sport}-person-${i}-${j}`;s.people.push({id,name:`${sport} Pessoa ${i}-${j}`});return id;})}));d.started=true;d.matches=schedule(d.teams);return d;}
 for(let n=4;n<=12;n++){const s=emptyState(),d=addDivision(s,'volei',n);assert.equal(d.matches.length,n*(n-1)/2);assert.equal(new Set(d.matches.map(m=>[m.a,m.b].sort().join(':'))).size,d.matches.length);for(const r of new Set(d.matches.map(m=>m.round))){const ids=d.matches.filter(m=>m.round===r).flatMap(m=>[...new Set([...lineups(d,m).a,...lineups(d,m).b])]);assert.equal(new Set(ids).size,ids.length);}validateState(s);}
 const s=emptyState(),d=addDivision(s,'futevolei');d.teams[3].players[0]=d.teams[0].players[0];d.matches=schedule(d.teams);
@@ -172,4 +172,68 @@ slides.people[0].name='Um nome de participante comprido para verificar a leitura
 assert.equal(tvTeamsSlide(slides,0).teams.length,6);
 assert.equal(tvTeamsSlide(emptyState(),0).pages,1);
 assert.deepEqual(tvTeamsSlide(emptyState(),1).teams,[]);
+// Six footvolley teams play six games; each gets two distinct, eligible opponents.
+const shortState=emptyState(),shortDivision=addDivision(shortState,'futevolei',6);
+shortDivision.teams[3].players[0]=shortDivision.teams[0].players[0];
+const shortPeople=structuredClone(shortState.people),shortTeams=structuredClone(shortDivision.teams);
+resetGroups(shortDivision,true,'futevolei');
+assert.equal(shortDivision.groupFormat,'two-games');assert.equal(shortDivision.matches.length,6);
+for(const team of shortDivision.teams){
+  const games=shortDivision.matches.filter(m=>m.a===team.id||m.b===team.id);
+  assert.equal(games.length,2);
+  assert.equal(new Set(games.map(m=>m.a===team.id?m.b:m.a)).size,2);
+}
+for(const m of shortDivision.matches)assert.equal(sharedPlayers(shortDivision,m).length,0);
+for(const round of new Set(shortDivision.matches.map(m=>m.round))){
+  const people=shortDivision.matches.filter(m=>m.round===round).flatMap(m=>[...lineups(shortDivision,m).a,...lineups(shortDivision,m).b]);
+  assert.equal(new Set(people).size,people.length,'A repeated player cannot be scheduled in simultaneous matches');
+}
+validateState(shortState);
+const downgraded=structuredClone(shortState);delete downgraded.divisions.futevolei.groupFormat;
+downgraded.divisions.futevolei.matches=schedule(shortTeams);
+assert.throws(()=>validateState(downgraded,shortState),/duas partidas/);
+const forgedGroup=structuredClone(shortState);forgedGroup.divisions.futevolei.matches[0].b=shortTeams[3].id;
+assert.throws(()=>validateState(forgedGroup,shortState),/Tabela/);
+for(const m of shortDivision.matches){
+  const preferred=[shortTeams[0].id,shortTeams[3].id,shortTeams[5].id];
+  recordScore(shortDivision,m.id,preferred.indexOf(m.a)>=0?[21,10]:[10,21]);
+}
+shortDivision.tieOrder=shortTeams.map(t=>t.id);qualify(shortDivision,'futevolei');
+assert.ok(shortDivision.seeded.includes(shortTeams[0].id)&&shortDivision.seeded.includes(shortTeams[3].id));
+assert.ok(shortDivision.semis.every(m=>!teamOverlap(shortTeams.find(t=>t.id===m.a),shortTeams.find(t=>t.id===m.b)).length));
+const sharedTeamIds=[shortTeams[0].id,shortTeams[3].id];
+const bronzeState=structuredClone(shortState),bronzeDivision=bronzeState.divisions.futevolei;
+for(const m of shortDivision.semis)recordScore(shortDivision,m.id,sharedTeamIds.includes(m.a)?[21,10]:[10,21]);
+assert.deepEqual(new Set([shortDivision.final.a,shortDivision.final.b]),new Set(sharedTeamIds));
+assert.throws(()=>recordScore(shortDivision,'final',[21,10]),/substituto/);
+for(const m of bronzeDivision.semis)recordScore(bronzeDivision,m.id,sharedTeamIds.includes(m.a)?[10,21]:[21,10]);
+assert.deepEqual(new Set([bronzeDivision.thirdPlace.a,bronzeDivision.thirdPlace.b]),new Set(sharedTeamIds));
+assert.throws(()=>recordScore(bronzeDivision,'third-place',[21,10]),/substituto/);
+shortState.people.push({id:'new-short-sub',name:'Substituto da final'});
+const finalLineups=structuredClone(lineups(shortDivision,shortDivision.final));
+finalLineups.a[0]='new-short-sub';setLineups(shortDivision,'final',finalLineups);
+recordScore(shortDivision,'final',[21,10]);recordScore(shortDivision,'third-place',[21,10]);validateState(shortState);
+assert.deepEqual(shortDivision.teams,shortTeams);
+const restart=emptyState(),restartDivision=addDivision(restart,'futevolei',6);
+resetGroups(restartDivision,false,'futevolei');generateGroups(restartDivision,'futevolei');
+assert.equal(restartDivision.matches.length,6);validateState(restart);
+assert.deepEqual(shortState.people.slice(0,-1),shortPeople);
+for(let n=4;n<=32;n++){
+  const many=emptyState(),division=addDivision(many,'futevolei',n);
+  resetGroups(division,true,'futevolei');assert.equal(division.matches.length,n);validateState(many);
+}
+const impossible=emptyState(),impossibleDivision=addDivision(impossible,'futevolei',6);
+impossibleDivision.teams.slice(0,4).forEach(t=>t.players[0]=impossibleDivision.teams[0].players[0]);
+const beforeFailure=structuredClone(impossibleDivision);
+assert.throws(()=>resetGroups(impossibleDivision,true,'futevolei'),/Não é possível/);
+assert.deepEqual(impossibleDivision,beforeFailure,'An impossible draw must leave existing games intact');
+const blocked=emptyState(),blockedDivision=addDivision(blocked,'futevolei',6);
+blockedDivision.teams.slice(0,3).forEach(t=>t.players[0]=blockedDivision.teams[0].players[0]);
+resetGroups(blockedDivision,true,'futevolei');
+for(const m of blockedDivision.matches)recordScore(blockedDivision,m.id,blockedDivision.teams.slice(0,3).some(t=>t.id===m.a)?[21,10]:[10,21]);
+blockedDivision.tieOrder=blockedDivision.teams.map(t=>t.id);
+const blockedBefore=structuredClone(blockedDivision);
+assert.throws(()=>qualify(blockedDivision,'futevolei'),/semifinais sem pessoas em comum/);
+assert.deepEqual(blockedDivision,blockedBefore,'An impossible semifinal draw must not partially qualify teams');
+assert.equal(scheduleTwoGames(shortTeams).length,6);
 console.log('PASS: tournament rules, preserved teams after clearing matches, TV rounds and alternating roster pages.');

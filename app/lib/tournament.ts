@@ -2,7 +2,7 @@ export type Sport = "volei" | "futevolei";
 export type Person = { id: string; name: string };
 export type Team = { id: string; name: string; color: string; players: string[] };
 export type Match = { id: string; a: string; b: string; round: number; score: [number, number] | null; playing?: boolean; lineups?: { a: string[]; b: string[] } };
-export type Division = { teams: Team[]; matches: Match[]; started: boolean; seeded: string[]; semis: Match[]; final: Match | null; thirdPlace?: Match | null; tieOrder: string[] };
+export type Division = { teams: Team[]; matches: Match[]; started: boolean; seeded: string[]; semis: Match[]; final: Match | null; thirdPlace?: Match | null; tieOrder: string[]; groupFormat?: "two-games" };
 export type Championship = { version: 2; title: string; people: Person[]; divisions: Record<Sport, Division> };
 export const sports: Sport[] = ["volei", "futevolei"];
 export const labels = { volei: "Vôlei", futevolei: "Futevôlei" };
@@ -36,7 +36,7 @@ export function normalizeState(value: unknown): Championship {
       const key = personKey(name); const found = byName.get(key); if (found) return found;
       const id = `person-legacy-${s.people.length + 1}`; byName.set(key, id); s.people.push({ id, name: name.trim() }); return id;
     });
-    if (d.started) { const prior = new Map(d.matches.map(m => [m.id, m])); d.matches = schedule(d.teams).map(m => ({ ...m, score: prior.get(m.id)?.score ?? null })); }
+    if (d.started) { const prior = new Map(d.matches.map(m => [m.id, m])); d.matches = (d.groupFormat === "two-games" ? scheduleTwoGames(d.teams) : schedule(d.teams)).map(m => ({ ...m, score: prior.get(m.id)?.score ?? null })); }
   }
   return addMissingThirdPlace(s);
 }
@@ -67,6 +67,50 @@ export function schedule(teams: Team[]): Match[] {
     wheel.splice(1, 0, wheel.pop()!);
   }
   return result;
+}
+export function scheduleTwoGames(teams: Team[]): Match[] {
+  if (teams.length < 4 || teams.length > 32) throw new Error("Cadastre de 4 a 32 times para gerar os grupos.");
+  const available = teams.map((a, i) => teams.flatMap((b, j) => i !== j && !teamOverlap(a, b).length ? [j] : []));
+  const degree = teams.map(() => 0), edges: [number, number][] = [], used = new Set<string>();
+  const key = (a: number, b: number) => [a, b].sort((x, y) => x - y).join(":");
+  let attempts = 0;
+  function find(): boolean {
+    if (++attempts > 100000) throw new Error("Não foi possível montar a tabela de duas partidas por time. Revise os participantes em comum e tente novamente.");
+    let selected = -1, options: number[] = [], slack = Infinity;
+    for (let i = 0; i < teams.length; i++) {
+      if (degree[i] === 2) continue;
+      const candidates = available[i].filter(j => degree[j] < 2 && !used.has(key(i, j)));
+      const remaining = 2 - degree[i];
+      if (candidates.length < remaining) return false;
+      if (candidates.length - remaining < slack) { selected = i; options = candidates; slack = candidates.length - remaining; }
+    }
+    if (selected < 0) return true;
+    const needed = 2 - degree[selected];
+    for (let i = 0; i < options.length; i++) {
+      const combinations = needed === 1 ? [[options[i]]] : options.slice(i + 1).map(j => [options[i], j]);
+      for (const opponents of combinations) {
+        for (const opponent of opponents) { degree[selected]++; degree[opponent]++; used.add(key(selected, opponent)); edges.push([selected, opponent]); }
+        if (find()) return true;
+        for (const opponent of opponents) { degree[selected]--; degree[opponent]--; used.delete(key(selected, opponent)); edges.pop(); }
+      }
+    }
+    return false;
+  }
+  if (!find()) throw new Error("Não é possível dar duas partidas a cada time sem enfrentar pessoas em comum. Revise os participantes dos times.");
+  const rounds: Set<string>[] = [];
+  return edges.map(([a, b]) => {
+    const players = [...teams[a].players, ...teams[b].players];
+    let round = rounds.findIndex(occupied => players.every(id => !occupied.has(id)));
+    if (round < 0) { round = rounds.length; rounds.push(new Set()); }
+    players.forEach(id => rounds[round].add(id));
+    return { id: `group-two-${Math.min(a, b)}-${Math.max(a, b)}`, a: teams[a].id, b: teams[b].id, round: round + 1, score: null };
+  });
+}
+export function generateGroups(d: Division, sport: Sport) {
+  if (d.started) throw new Error("Exclua ou gere novamente as rodadas antes de criar os grupos.");
+  const matches = sport === "futevolei" ? scheduleTwoGames(d.teams) : schedule(d.teams);
+  if (sport === "futevolei") d.groupFormat = "two-games"; else delete d.groupFormat;
+  d.started = true; d.matches = matches; d.seeded = []; d.semis = []; d.final = null; d.thirdPlace = null; d.tieOrder = [];
 }
 export function standings(d: Division) {
   const rows = d.teams.map(t => ({ ...t, played: 0, wins: 0, losses: 0, leaguePoints: 0, pointsFor: 0, pointsAgainst: 0, balance: 0 }));
@@ -108,6 +152,7 @@ export function tvGroupRounds(d: Division) {
 export function eraseFinishedDivision(d: Division) {
   if (!divisionFinished(d)) throw new Error("Conclua a final e a disputa de terceiro lugar antes de apagar esta modalidade.");
   Object.assign(d, emptyDivision(), { teams: d.teams });
+  delete d.groupFormat;
 }
 export function tvTeamsSlide(state: Championship, step: number) {
   const sport = sports[step % sports.length], allTeams = state.divisions[sport].teams;
@@ -115,7 +160,7 @@ export function tvTeamsSlide(state: Championship, step: number) {
   const pages = Math.max(1, Math.ceil(allTeams.length / size)), page = Math.floor(step / sports.length) % pages;
   return { sport, page, pages, total: allTeams.length, teams: allTeams.slice(page * size, (page + 1) * size) };
 }
-export function semifinalPairs(d: Division) {
+export function semifinalPairs(d: Division, avoidShared = d.groupFormat === "two-games") {
   const ranked = standings(d).slice(0, 4);
   const candidates = [[[0, 3], [1, 2]], [[0, 2], [1, 3]], [[0, 1], [2, 3]]];
   let best = candidates[0], cost = Infinity;
@@ -124,18 +169,23 @@ export function semifinalPairs(d: Division) {
     const value = overlaps.filter(n => n > 0).length * 100 + overlaps.reduce((sum, n) => sum + n, 0);
     if (value < cost) { best = pairs; cost = value; }
   }
+  if (avoidShared && cost > 0) throw new Error("Não é possível separar os 4 classificados em semifinais sem pessoas em comum. Revise os times antes de liberar as semifinais.");
   return best.map(([a, b]) => [ranked[a].id, ranked[b].id]);
 }
-export function qualify(d: Division) {
+export function qualify(d: Division, sport?: Sport) {
   if (!groupsDone(d) || needsDraw(d)) throw new Error("Conclua os grupos e resolva os desempates primeiro.");
+  const pairs = semifinalPairs(d, sport === "futevolei" || d.groupFormat === "two-games");
   d.seeded = standings(d).slice(0, 4).map(t => t.id);
-  d.semis = semifinalPairs(d).map(([a, b], i) => ({ id: `semi-${i + 1}`, a, b, round: i + 1, score: null })); d.final = null; d.thirdPlace = null;
+  d.semis = pairs.map(([a, b], i) => ({ id: `semi-${i + 1}`, a, b, round: i + 1, score: null })); d.final = null; d.thirdPlace = null;
 }
-export function resetGroups(d: Division, regenerate = false) {
+export function resetGroups(d: Division, regenerate = false, sport?: Sport) {
   if (!d.started || d.seeded.length) throw new Error("As rodadas só podem ser refeitas durante a fase de grupos.");
   if (d.matches.some(m => m.playing)) throw new Error("Pause as partidas em andamento antes de excluir ou recriar as rodadas.");
+  const twoGames = sport === "futevolei" || d.groupFormat === "two-games";
+  const matches = regenerate ? (twoGames ? scheduleTwoGames(d.teams) : schedule(d.teams)) : [];
   d.started = regenerate;
-  d.matches = regenerate ? schedule(d.teams) : [];
+  d.matches = matches;
+  if (regenerate && twoGames) d.groupFormat = "two-games"; else delete d.groupFormat;
   d.tieOrder = []; d.seeded = []; d.semis = []; d.final = null; d.thirdPlace = null;
 }
 export function setLineups(d: Division, id: string, chosen: { a: string[]; b: string[] }) {
@@ -200,13 +250,16 @@ export function validateState(value: unknown, previous?: Championship): asserts 
       ids.add(t.id); names.add(t.name.trim().toLocaleLowerCase());
     }
     if (d.started && d.teams.length < 4) throw new Error("Cadastre pelo menos 4 times.");
-    const expected = d.started ? schedule(d.teams) : [];
+    if (d.groupFormat !== undefined && (d.groupFormat !== "two-games" || sport !== "futevolei")) throw new Error("Formato da fase de grupos inválido.");
+    if (sport === "futevolei" && d.started && !d.groupFormat && previous && (!previous.divisions[sport].started || previous.divisions[sport].groupFormat === "two-games")) throw new Error("Gere novamente os grupos do futevôlei com duas partidas por time.");
+    const expected = d.started ? (d.groupFormat === "two-games" ? scheduleTwoGames(d.teams) : schedule(d.teams)) : [];
     if (expected.length !== d.matches.length || expected.some((m, i) => m.id !== d.matches[i].id || m.a !== d.matches[i].a || m.b !== d.matches[i].b || m.round !== d.matches[i].round)) throw new Error("Tabela de jogos inválida.");
     if (d.tieOrder.length && (d.tieOrder.length !== ids.size || new Set(d.tieOrder).size !== ids.size || d.tieOrder.some(id => !ids.has(id)))) throw new Error("Desempate inválido.");
     if (d.seeded.length) {
       const seeds = standings(d).slice(0, 4).map(t => t.id);
       const semiTeams = d.semis.flatMap(m => [m.a, m.b]);
       if (!groupsDone(d) || needsDraw(d) || d.seeded.length !== 4 || seeds.some((id, i) => id !== d.seeded[i]) || d.semis.length !== 2 || d.semis[0].id !== "semi-1" || d.semis[1].id !== "semi-2" || new Set(semiTeams).size !== 4 || semiTeams.some(id => !seeds.includes(id))) throw new Error("Chaveamento inválido.");
+      if (d.groupFormat === "two-games" && d.semis.some(m => teamOverlap(d.teams.find(t => t.id === m.a)!, d.teams.find(t => t.id === m.b)!).length)) throw new Error("Times com pessoas em comum não podem se enfrentar nas semifinais do futevôlei.");
     } else if (d.semis.length || d.final || d.thirdPlace) throw new Error("Chaveamento ainda não liberado.");
     if (d.final && (d.final.id !== "final" || d.final.a !== winner(d.semis[0]) || d.final.b !== winner(d.semis[1]))) throw new Error("Final inválida.");
     const thirdA = loser(d.semis[0] ?? null), thirdB = loser(d.semis[1] ?? null);
@@ -237,7 +290,7 @@ export function demoState(): Championship {
     d.teams = [["Os Confeiteiros", "#ee795d"], ["Bonde do Parabéns", "#a193d6"], ["Só Mais um Set", "#74b7a2"], ["Os Sem Vela", "#dfac44"], ["Saideira FC", "#7ca5d8"], ["Bolo de Campeões", "#d98faf"]].map(([name, color], i) => ({ id: `${sport}-${i}`, name, color, players: Array.from({ length: rosterSize[sport] }, (_, j) => {
       const id = `demo-person-${i * 6 + j + 1}`; if (!s.people.some(p => p.id === id)) s.people.push({ id, name: `Jogador ${i * 6 + j + 1}` }); return id;
     }) }));
-    d.started = true; d.matches = schedule(d.teams); d.matches.slice(0, 5).forEach((m, i) => m.score = [21, 12 + i]);
+    generateGroups(d, sport); d.matches.slice(0, 5).forEach((m, i) => m.score = [21, 12 + i]);
   }
   return s;
 }
